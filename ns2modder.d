@@ -4,6 +4,8 @@ import std.process;
 import std.array;
 import std.path;
 import std.string;
+import std.zip;
+import std.range;
 
 import core.stdc.stdlib      : exit;
 import core.sys.posix.unistd : link;
@@ -104,7 +106,7 @@ void main(string[] args) {
 		if (!exists("src")) {
 			mkdir("src");
 		}
-		append(".gitignore", "output\n");
+		append(".gitignore", "output\noutput.zip\n");
 
 		config.write(default_config);
 		break;
@@ -142,6 +144,45 @@ void main(string[] args) {
 	case "compile":
 		compile;
 		break;
+	case "publish":
+		if (!SteamAPI_Init()) exit(1);
+
+		auto remote = SteamRemoteStorage();
+		auto utils  = SteamUtils();
+
+		if (!remote || !utils) {
+			stderr.writeln("Could not load utils or remote apis!");
+			exit(1);
+		}
+
+		compile;
+
+		auto variation = args.length < 3 ? "master" : args[2];
+		auto toml      = config.readText.parseTOML[variation].table;
+
+		auto name            = toml["name"].str;
+		auto tags            = toml["tags"].array;
+		auto autodescription = toml["autodescription"].boolean;
+		auto description     = toml["description"].str.readText;
+		auto preview         = toml["preview"].str.read;
+
+		auto file            = new ZipArchive;
+
+		auto modinfo         = new ArchiveMember;
+		modinfo.name         = ".modinfo";
+		modinfo.expandedData = ("name=\"" ~ name ~"\"").representation.dup;
+		file.addMember(modinfo);
+
+		foreach(entry; dirEntries("output", SpanMode.depth)) {
+			if (entry.isDir) continue;
+			auto member         = new ArchiveMember;
+			member.name         = entry.pathSplitter.drop(1).buildPath;
+			member.expandedData = cast(ubyte[])entry.read;
+			file.addMember(member);
+		}
+
+		write("output.zip", file.build);
+		break;
 	case "help":
 		writeln(help);
 		break;
@@ -149,16 +190,4 @@ void main(string[] args) {
 		stderr.writeln("Not a valid command!");
 		goto case "help";
 	}
-
-	/*
-	if (!SteamAPI_Init()) return 1;
-
-	auto remote = SteamRemoteStorage();
-	auto utils  = SteamUtils();
-
-	if (!remote || !utils) {
-		stderr.writeln("Could not load utils or remote apis!");
-		exit(1);
-	}
-	*/
 }
