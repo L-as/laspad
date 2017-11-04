@@ -1,0 +1,11 @@
+.dub
+docs.json
+__dummy.html
+docs/
+ns2modder
+*.exe
+*.o
+*.obj
+*.lst
+*.so
+*.dll
