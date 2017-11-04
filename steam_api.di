@@ -20,7 +20,7 @@ enum FileType {
 
 struct Strings {
 	const char** strings;
-	int      length;
+	int          length;
 }
 
 enum Result {
@@ -143,6 +143,6 @@ struct RemoteStoragePublishFileResult {
 
 SteamAPICall_t SteamAPI_ISteamRemoteStorage_UpdatePublishedFileFile(void*, ulong, const char*);
 SteamAPICall_t SteamAPI_ISteamRemoteStorage_PublishWorkshopFile(void*, const char*, const char*, uint, const char*, const char*, Visibility, Strings*, FileType);
+bool           SteamAPI_ISteamRemoteStorage_FileWrite(in char*, in byte*, int);
 bool           SteamAPI_ISteamUtils_IsAPICallCompleted(void*, SteamAPICall_t, bool*);
 bool           SteamAPI_ISteamUtils_GetAPICallResult(void*, SteamAPICall_t, void*, int, int, bool*);
-
