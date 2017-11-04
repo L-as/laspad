@@ -27,13 +27,17 @@ Commands:
  * compile
    Compiles all dependencies and your own mod into the `output` folder
    for you to use as the game path in NS2.
+   You don't need to use this, if you don't have any dependencies.
+
+   On posix, the files will be hard-linked, so you only need to run
+   this if you add or remove a file.
 
  * necessitate   <git repo URLs>
    Adds the git repos as dependencies (actually submodules).
    They will be included when you compile or publish.
 
  * unnecessitate <git repo names>
-   Removes the git repo as a dependency.
+   Removes the git repos as dependencies.
 
  * update
    Makes sure that all dependencies are completely initialised and updated.

@@ -2,8 +2,11 @@ import std.stdio;
 import std.file;
 import std.process;
 import std.array;
+import std.path;
+import std.string;
 
-import core.stdc.stdlib : exit;
+import core.stdc.stdlib      : exit;
+import core.sys.posix.unistd : link;
 
 import toml;
 
@@ -38,6 +41,53 @@ auto stash() {
 	return S(!!spawnProcess(["git", "diff-index", "--quiet", "HEAD", "--"]).wait);
 }
 
+void compile() {
+	if(exists("output")) rmdirRecurse("output");
+	mkdir("output");
+
+	foreach(string entry; dirEntries("src", SpanMode.breadth)) {
+		//relative path within the mod itself
+		auto split = entry.split(dirSeparator);
+		split[0] = "output";
+		auto path  = split.join(dirSeparator);
+
+		if(entry.isDir) {
+			if(!path.exists) path.mkdir;
+		} else {
+			version(Posix) {
+				link(entry.toStringz, path.toStringz);
+			} else {
+				copy(entry, path);
+			}
+		}
+	}
+
+	if(exists("dependencies")) foreach(string dependency; dirEntries("dependencies", SpanMode.shallow)) {
+		auto src =
+			chainPath(dependency, "src").exists    ? buildPath(dependency, "src")    :
+			chainPath(dependency, "output").exists ? buildPath(dependency, "output") :
+			chainPath(dependency, "source").exists ? buildPath(dependency, "source") :
+			buildPath(dependency, ".");
+
+		outer:
+		foreach(string entry; src.dirEntries(SpanMode.breadth)) {
+			auto split = entry.split(dirSeparator);
+			foreach(part; split[3 .. $]) if (part[0] == '.') continue outer;
+			auto path = buildPath("output", split[3 .. $].join(dirSeparator));
+
+			if(entry.isDir) {
+				if(!path.exists) path.mkdir;
+			} else {
+				version(Posix) {
+					link(entry.toStringz, path.toStringz);
+				} else {
+					copy(entry, path);
+				}
+			}
+		}
+	}
+}
+
 immutable config = "config.toml";
 immutable help                = import("help.txt");
 immutable default_config      = import(config);
@@ -51,6 +101,11 @@ void main(string[] args) {
 			stderr.writeln("Mod already present!");
 			exit(1);
 		}
+		if (!exists("src")) {
+			mkdir("src");
+		}
+		append(".gitignore", "output\n");
+
 		config.write(default_config);
 		break;
 	case "necessitate":
@@ -83,6 +138,9 @@ void main(string[] args) {
 		spawnProcess(["git", "submodule", "sync"]).ensure;
 		spawnProcess(["git", "submodule", "update", "--remote"]).ensure;
 		spawnProcess(["git", "commit",    "-am",     "Updated dependencies"]).wait;
+		break;
+	case "compile":
+		compile;
 		break;
 	case "help":
 		writeln(help);
