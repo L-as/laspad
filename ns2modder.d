@@ -6,6 +6,8 @@ import std.path;
 import std.string;
 import std.zip;
 import std.range;
+import std.format;
+import std.conv;
 
 import core.stdc.stdlib      : exit;
 import core.sys.posix.unistd : link;
@@ -18,7 +20,7 @@ alias write = std.file.write;
 
 void ensure(Pid pid) {
 	auto err = pid.wait;
-	if (err) {
+	if(err) {
 		stderr.writefln("ns2modder encountered an error!");
 		exit(1);
 	}
@@ -29,12 +31,12 @@ auto stash() {
 		bool changed;
 		this(bool changed) {
 			this.changed = changed;
-			if (changed) {
+			if(changed) {
 				spawnProcess(["git", "stash"]).ensure;
 			}
 		}
 		~this() {
-			if (changed) {
+			if(changed) {
 				spawnProcess(["git", "stash", "pop", "--index"]).ensure;
 			}
 		}
@@ -74,7 +76,7 @@ void compile() {
 		outer:
 		foreach(string entry; src.dirEntries(SpanMode.breadth)) {
 			auto split = entry.split(dirSeparator);
-			foreach(part; split[3 .. $]) if (part[0] == '.') continue outer;
+			foreach(part; split[3 .. $]) if(part[0] == '.') continue outer;
 			auto path = buildPath("output", split[3 .. $].join(dirSeparator));
 
 			if(entry.isDir) {
@@ -99,11 +101,11 @@ void main(string[] args) {
 
 	switch(operation) {
 	case "init":
-		if (config.exists) {
+		if(config.exists) {
 			stderr.writeln("Mod already present!");
 			exit(1);
 		}
-		if (!exists("src")) {
+		if(!exists("src")) {
 			mkdir("src");
 		}
 		append(".gitignore", "output\noutput.zip\n");
@@ -111,11 +113,11 @@ void main(string[] args) {
 		config.write(default_config);
 		break;
 	case "necessitate":
-		if (args.length < 3) {
+		if(args.length < 3) {
 			stderr.writeln("Syntax: ns2modder necessitate <git repo URLs>");
 			exit(1);
 		}
-		if (!exists("dependencies")) mkdir("dependencies");
+		if(!exists("dependencies")) mkdir("dependencies");
 		auto s = stash();
 		foreach(repo; args[2 .. $]) {
 			spawnProcess(["git", "submodule", "add", repo], null, Config.none, "dependencies").ensure;
@@ -123,7 +125,7 @@ void main(string[] args) {
 		spawnProcess(["git", "commit", "-m", "Added dependencies '" ~ args[2 .. $].join(' ') ~ "'"]).ensure;
 		break;
 	case "denecessitate":
-		if (args.length < 3) {
+		if(args.length < 3) {
 			stderr.writeln("Syntax: ns2modder necessitate <git repo names>");
 			exit(1);
 		}
@@ -145,12 +147,12 @@ void main(string[] args) {
 		compile;
 		break;
 	case "publish":
-		if (!SteamAPI_Init()) exit(1);
+		if(!SteamAPI_Init()) exit(1);
 
 		auto remote = SteamRemoteStorage();
 		auto utils  = SteamUtils();
 
-		if (!remote || !utils) {
+		if(!remote || !utils) {
 			stderr.writeln("Could not load utils or remote apis!");
 			exit(1);
 		}
@@ -164,24 +166,74 @@ void main(string[] args) {
 		auto tags            = toml["tags"].array;
 		auto autodescription = toml["autodescription"].boolean;
 		auto description     = toml["description"].str.readText;
-		auto preview         = toml["preview"].str.read;
+		auto preview         = cast(byte[])toml["preview"].str.read;
 
 		auto file            = new ZipArchive;
 
 		auto modinfo         = new ArchiveMember;
-		modinfo.name         = ".modinfo";
-		modinfo.expandedData = ("name=\"" ~ name ~"\"").representation.dup;
+		modinfo.name         = ".modinfo"; modinfo.expandedData = ("name=\"" ~ name ~"\"").representation.dup;
 		file.addMember(modinfo);
 
 		foreach(entry; dirEntries("output", SpanMode.depth)) {
-			if (entry.isDir) continue;
+			if(entry.isDir) continue;
 			auto member         = new ArchiveMember;
 			member.name         = entry.pathSplitter.drop(1).buildPath;
 			member.expandedData = cast(ubyte[])entry.read;
 			file.addMember(member);
 		}
 
-		write("output.zip", file.build);
+		auto data         = cast(byte[])file.build;
+
+		auto filename     = "ns2mod.%s.%s.zip".format(name, variation);
+		auto preview_name = "ns2mod.%s.%s.preview.jpg".format(name, variation);
+		if(!SteamAPI_ISteamRemoteStorage_FileWrite(remote, filename.toStringz, data.ptr, cast(int)data.length)) {
+			stderr.writeln("Could not write zip file to remote storage! Please check https://partner.steamgames.com/doc/api/ISteamRemoteStorage#FileWrite for possible reasons.");
+			exit(1);
+		}
+		if(!SteamAPI_ISteamRemoteStorage_FileWrite(remote, preview_name.toStringz, preview.ptr, cast(int)preview.length)) {
+			stderr.writeln("Could not write preview file to remote storage! Please check https://partner.steamgames.com/doc/api/ISteamRemoteStorage#FileWrite for possible reasons.");
+			exit(1);
+		}
+
+		const(char*)[] strings;
+		foreach(tag; tags) {
+			strings ~= tag.str.toStringz;
+		}
+		auto steam_tags = Strings(strings.ptr, cast(int)strings.length);
+
+		auto apicall = SteamAPI_ISteamRemoteStorage_PublishWorkshopFile(remote,
+			filename.toStringz,
+			preview_name.toStringz,
+			4920,
+			name.toStringz,
+			description.toStringz,
+			Visibility.Public,
+			&steam_tags,
+			FileType.Community,
+		);
+
+		bool failure;
+		while(!SteamAPI_ISteamUtils_IsAPICallCompleted(utils, apicall, &failure)) {}
+		if(failure) {
+			stderr.writeln("Failed to publish mod!");
+			exit(1);
+		}
+
+		auto result = RemoteStoragePublishFileResult();
+
+		SteamAPI_ISteamUtils_GetAPICallResult(utils, apicall, &result, result.sizeof, 1309, &failure);
+		if(failure) {
+			stderr.writeln("Failed to publish mod!");
+			stderr.writeln("API call failure reason: ", SteamAPI_ISteamUtils_GetAPICallFailureReason(utils, apicall));
+		}
+
+		auto modid = result.id.to!string(16);
+
+		if(result.accept_agreement) stderr.writeln("You have to accept the steam agreement!");
+		writeln("Response from steam: ", result.result);
+		writeln("Mod ID: ", modid);
+		write(".modid." ~ variation, modid);
+
 		break;
 	case "help":
 		writeln(help);

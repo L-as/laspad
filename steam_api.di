@@ -137,12 +137,13 @@ enum Result {
 
 struct RemoteStoragePublishFileResult {
 	Result   result;
-	ulong id;
+	ulong    id;
 	bool     accept_agreement;
 }
 
 SteamAPICall_t SteamAPI_ISteamRemoteStorage_UpdatePublishedFileFile(void*, ulong, const char*);
 SteamAPICall_t SteamAPI_ISteamRemoteStorage_PublishWorkshopFile(void*, const char*, const char*, uint, const char*, const char*, Visibility, Strings*, FileType);
-bool           SteamAPI_ISteamRemoteStorage_FileWrite(in char*, in byte*, int);
+bool           SteamAPI_ISteamRemoteStorage_FileWrite(void*, in char*, in byte*, int);
 bool           SteamAPI_ISteamUtils_IsAPICallCompleted(void*, SteamAPICall_t, bool*);
 bool           SteamAPI_ISteamUtils_GetAPICallResult(void*, SteamAPICall_t, void*, int, int, bool*);
+long           SteamAPI_ISteamUtils_GetAPICallFailureReason(void*, SteamAPICall_t);
