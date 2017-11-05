@@ -3,5 +3,5 @@
 name            = "My mod"         # the name which will be shown on the workshop
 tags            = ["tag1", "tag2"] # tags
 autodescription = true             # whether ns2modder should automatically include things in your description.
-description     = "/dev/null"      # where is the description? Must be set.
-preview         = "/dev/null"      # where is the image preview? Must be set.
+description     = "/dev/null"      # where is the description?
+preview         = "/dev/null"      # where is the image preview?

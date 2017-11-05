@@ -188,7 +188,6 @@ void main(string[] args) {
 						url = "https://" ~ url;
 					}
 					url = url.chomp(".git");
-					writeln(url);
 					description ~= "[b][url=%s]git repository[/url][/b]\ncurrent %s\n\n".format(url, commit);
 				}
 				auto shortlog = execute(["git", "shortlog", "-sne"]);
@@ -237,7 +236,7 @@ void main(string[] args) {
 				stderr.writeln("Could not write zip file to remote storage! Please check https://partner.steamgames.com/doc/api/ISteamRemoteStorage#FileWrite for possible reasons.");
 				exit(1);
 			}
-			if(!SteamAPI_ISteamRemoteStorage_FileWrite(remote, preview_name.toStringz, preview.ptr, cast(int)preview.length)) {
+			if(preview.length) if(!SteamAPI_ISteamRemoteStorage_FileWrite(remote, preview_name.toStringz, preview.ptr, cast(int)preview.length)) {
 				stderr.writeln("Could not write preview file to remote storage! Please check https://partner.steamgames.com/doc/api/ISteamRemoteStorage#FileWrite for possible reasons.");
 				exit(1);
 			}
@@ -250,7 +249,7 @@ void main(string[] args) {
 
 			auto update = SteamAPI_ISteamRemoteStorage_CreatePublishedFileUpdateRequest(remote, modid);
 			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileFile(remote, update, filename.toStringz).enforce;
-			SteamAPI_ISteamRemoteStorage_UpdatePublishedFilePreviewFile(remote, update, preview_name.toStringz).enforce;
+			if(preview.length) SteamAPI_ISteamRemoteStorage_UpdatePublishedFilePreviewFile(remote, update, preview_name.toStringz).enforce;
 			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileDescription(remote, update, description.toStringz).enforce;
 			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileSetChangeDescription(remote, update, commit.toStringz).enforce;
 			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileTags(remote, update, &steam_tags).enforce;
