@@ -23,7 +23,7 @@ struct Strings {
 	int          length;
 }
 
-enum Result {
+enum Result : int {
 	OK                                      = 1,
 	Fail                                    = 2,
 	NoConnection                            = 3,
@@ -136,14 +136,22 @@ enum Result {
 }
 
 struct RemoteStoragePublishFileResult {
+	align(1):
 	Result   result;
 	ulong    id;
 	bool     accept_agreement;
 }
 
-SteamAPICall_t SteamAPI_ISteamRemoteStorage_UpdatePublishedFileFile(void*, ulong, const char*);
 SteamAPICall_t SteamAPI_ISteamRemoteStorage_PublishWorkshopFile(void*, const char*, const char*, uint, const char*, const char*, Visibility, Strings*, FileType);
 bool           SteamAPI_ISteamRemoteStorage_FileWrite(void*, in char*, in byte*, int);
+ulong          SteamAPI_ISteamRemoteStorage_CreatePublishedFileUpdateRequest(void*, ulong);
+SteamAPICall_t SteamAPI_ISteamRemoteStorage_CommitPublishedFileUpdate(void*, ulong);
+bool           SteamAPI_ISteamRemoteStorage_UpdatePublishedFileFile(void*, ulong, in char*);
+bool           SteamAPI_ISteamRemoteStorage_UpdatePublishedFilePreviewFile(void*, ulong, in char*);
+bool           SteamAPI_ISteamRemoteStorage_UpdatePublishedFileDescription(void*, ulong, in char*);
+bool           SteamAPI_ISteamRemoteStorage_UpdatePublishedFileSetChangeDescription(void*, ulong, in char*);
+bool           SteamAPI_ISteamRemoteStorage_UpdatePublishedFileTags(void*, ulong, Strings*);
+bool           SteamAPI_ISteamRemoteStorage_UpdatePublishedFileTitle(void*, ulong, in char*);
 bool           SteamAPI_ISteamUtils_IsAPICallCompleted(void*, SteamAPICall_t, bool*);
 bool           SteamAPI_ISteamUtils_GetAPICallResult(void*, SteamAPICall_t, void*, int, int, bool*);
 long           SteamAPI_ISteamUtils_GetAPICallFailureReason(void*, SteamAPICall_t);

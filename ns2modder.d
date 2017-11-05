@@ -8,6 +8,7 @@ import std.zip;
 import std.range;
 import std.format;
 import std.conv;
+import std.exception;
 
 import core.stdc.stdlib      : exit;
 import core.sys.posix.unistd : link;
@@ -15,6 +16,10 @@ import core.sys.posix.unistd : link;
 import toml;
 
 import steam_api;
+
+immutable config = "config.toml";
+immutable help                = import("help.txt");
+immutable default_config      = import(config);
 
 alias write = std.file.write;
 
@@ -92,10 +97,6 @@ void compile() {
 	}
 }
 
-immutable config = "config.toml";
-immutable help                = import("help.txt");
-immutable default_config      = import(config);
-
 void main(string[] args) {
 	auto operation = args.length > 1 ? args[1] : "";
 
@@ -157,60 +158,128 @@ void main(string[] args) {
 			exit(1);
 		}
 
-		compile;
-
 		auto variation = args.length < 3 ? "master" : args[2];
 		auto toml      = config.readText.parseTOML[variation].table;
 
-		auto name            = toml["name"].str;
-		auto tags            = toml["tags"].array;
-		auto autodescription = toml["autodescription"].boolean;
-		auto description     = toml["description"].str.readText;
-		auto preview         = cast(byte[])toml["preview"].str.read;
+		ulong          modid;
+		int            callback_type;
+		SteamAPICall_t apicall;
+		if (exists(".modid." ~ variation)) {
+			compile;
 
-		auto file            = new ZipArchive;
+			auto name            = toml["name"].str;
+			auto tags            = toml["tags"].array;
+			auto autodescription = toml["autodescription"].boolean;
+			auto description     = toml["description"].str.readText;
+			auto preview         = cast(byte[])toml["preview"].str.read;
 
-		auto modinfo         = new ArchiveMember;
-		modinfo.name         = ".modinfo"; modinfo.expandedData = ("name=\"" ~ name ~"\"").representation.dup;
-		file.addMember(modinfo);
+			auto commit = "git commit: %s".format(execute(["git", "rev-parse", "HEAD"]).output);
+			modid = readText(".modid." ~ variation).to!ulong(16);
 
-		foreach(entry; dirEntries("output", SpanMode.depth)) {
-			if(entry.isDir) continue;
-			auto member         = new ArchiveMember;
-			member.name         = entry.pathSplitter.drop(1).buildPath;
-			member.expandedData = cast(ubyte[])entry.read;
-			file.addMember(member);
+			if(autodescription) {
+				auto old_description = description;
+				description = "[b]Mod ID: %X[/b]\n\n".format(modid);
+				auto gitremote = execute(["git", "remote", "get-url", "origin"]);
+				if(!gitremote.status) {
+					auto url = gitremote.output.strip.dup;
+					if(url.startsWith("git@")) { // ssh
+						url = url.chompPrefix("git@");
+						url[url.indexOf(':')] = '/';
+						url = "https://" ~ url;
+					}
+					url = url.chomp(".git");
+					writeln(url);
+					description ~= "[b][url=%s]git repository[/url][/b]\ncurrent %s\n\n".format(url, commit);
+				}
+				auto shortlog = execute(["git", "shortlog", "-sne"]);
+				if(!shortlog.status) {
+					description ~= "Authors: (commits, author, e-mail) [code]\n%s[/code]\n\n".format(shortlog.output);
+				}
+				auto submodules = execute(["git", "config", "-f", ".gitmodules", "--get-regexp", "submodule\\.dependencies/.*\\.url"]);
+				if(!submodules.status) {
+					description ~= "Mods included: [list]\n";
+					foreach(line; submodules.output.lineSplitter) {
+						auto split = line.split;
+						auto dependency = split[0]["submodule.dependencies/".length .. $-".url".length];
+						auto url        = split[1];
+						try {
+							auto dependency_modid = readText("dependencies/"~dependency~"/.modid.master");
+							auto workshop_url = "http://steamcommunity.com/sharedfiles/filedetails/?id=%s".format(dependency_modid.to!ulong);
+							description ~= "  [*] [url=%s]%s[/url] ([url=%s]Workshop link[/url])".format(url, dependency, workshop_url);
+						} catch(FileException e) {
+							description ~= "  [*] [url=%s]%s[/url]".format(url, dependency);
+						}
+					}
+					description ~= "[/list]\n\n";
+				}
+				description ~= old_description;
+			}
+
+			auto file            = new ZipArchive;
+
+			auto modinfo         = new ArchiveMember;
+			modinfo.name         = ".modinfo"; modinfo.expandedData = ("name=\"" ~ name ~"\"").representation.dup;
+			file.addMember(modinfo);
+
+			foreach(entry; dirEntries("output", SpanMode.depth)) {
+				if(entry.isDir) continue;
+				auto member         = new ArchiveMember;
+				member.name         = entry.pathSplitter.drop(1).buildPath;
+				member.expandedData = cast(ubyte[])entry.read;
+				file.addMember(member);
+			}
+
+			auto data         = cast(byte[])file.build;
+
+			auto filename     = "ns2mod.%s.%s.zip".format(name, variation);
+			auto preview_name = "ns2mod.%s.%s.preview.jpg".format(name, variation);
+			if(!SteamAPI_ISteamRemoteStorage_FileWrite(remote, filename.toStringz, data.ptr, cast(int)data.length)) {
+				stderr.writeln("Could not write zip file to remote storage! Please check https://partner.steamgames.com/doc/api/ISteamRemoteStorage#FileWrite for possible reasons.");
+				exit(1);
+			}
+			if(!SteamAPI_ISteamRemoteStorage_FileWrite(remote, preview_name.toStringz, preview.ptr, cast(int)preview.length)) {
+				stderr.writeln("Could not write preview file to remote storage! Please check https://partner.steamgames.com/doc/api/ISteamRemoteStorage#FileWrite for possible reasons.");
+				exit(1);
+			}
+
+			const(char*)[] strings;
+			foreach(tag; tags) {
+				strings ~= tag.str.toStringz;
+			}
+			auto steam_tags = Strings(strings.ptr, cast(int)strings.length);
+
+			auto update = SteamAPI_ISteamRemoteStorage_CreatePublishedFileUpdateRequest(remote, modid);
+			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileFile(remote, update, filename.toStringz).enforce;
+			SteamAPI_ISteamRemoteStorage_UpdatePublishedFilePreviewFile(remote, update, preview_name.toStringz).enforce;
+			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileDescription(remote, update, description.toStringz).enforce;
+			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileSetChangeDescription(remote, update, commit.toStringz).enforce;
+			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileTags(remote, update, &steam_tags).enforce;
+			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileTitle(remote, update, name.toStringz).enforce;
+			apicall = SteamAPI_ISteamRemoteStorage_CommitPublishedFileUpdate(remote, update);
+
+			callback_type = 1316;
+		} else {
+			auto dummy = "ns2mod.dummy.dummy.dummy".toStringz;
+			byte[] data = [0];
+			if(!SteamAPI_ISteamRemoteStorage_FileWrite(remote, dummy, data.ptr, cast(int)data.length)) {
+				stderr.writeln("Could not write dummy file to remote storage! Please check https://partner.steamgames.com/doc/api/ISteamRemoteStorage#FileWrite for possible reasons.");
+				exit(1);
+			}
+
+			auto tags = Strings(null, 0);
+			apicall = SteamAPI_ISteamRemoteStorage_PublishWorkshopFile(remote,
+				dummy,
+				dummy,
+				4920,
+				dummy,
+				dummy,
+				Visibility.Public,
+				&tags,
+				FileType.Community,
+			);
+
+			callback_type = 1309;
 		}
-
-		auto data         = cast(byte[])file.build;
-
-		auto filename     = "ns2mod.%s.%s.zip".format(name, variation);
-		auto preview_name = "ns2mod.%s.%s.preview.jpg".format(name, variation);
-		if(!SteamAPI_ISteamRemoteStorage_FileWrite(remote, filename.toStringz, data.ptr, cast(int)data.length)) {
-			stderr.writeln("Could not write zip file to remote storage! Please check https://partner.steamgames.com/doc/api/ISteamRemoteStorage#FileWrite for possible reasons.");
-			exit(1);
-		}
-		if(!SteamAPI_ISteamRemoteStorage_FileWrite(remote, preview_name.toStringz, preview.ptr, cast(int)preview.length)) {
-			stderr.writeln("Could not write preview file to remote storage! Please check https://partner.steamgames.com/doc/api/ISteamRemoteStorage#FileWrite for possible reasons.");
-			exit(1);
-		}
-
-		const(char*)[] strings;
-		foreach(tag; tags) {
-			strings ~= tag.str.toStringz;
-		}
-		auto steam_tags = Strings(strings.ptr, cast(int)strings.length);
-
-		auto apicall = SteamAPI_ISteamRemoteStorage_PublishWorkshopFile(remote,
-			filename.toStringz,
-			preview_name.toStringz,
-			4920,
-			name.toStringz,
-			description.toStringz,
-			Visibility.Public,
-			&steam_tags,
-			FileType.Community,
-		);
 
 		bool failure;
 		while(!SteamAPI_ISteamUtils_IsAPICallCompleted(utils, apicall, &failure)) {}
@@ -221,18 +290,21 @@ void main(string[] args) {
 
 		auto result = RemoteStoragePublishFileResult();
 
-		SteamAPI_ISteamUtils_GetAPICallResult(utils, apicall, &result, result.sizeof, 1309, &failure);
+		SteamAPI_ISteamUtils_GetAPICallResult(utils, apicall, &result, result.sizeof, callback_type, &failure);
 		if(failure) {
 			stderr.writeln("Failed to publish mod!");
 			stderr.writeln("API call failure reason: ", SteamAPI_ISteamUtils_GetAPICallFailureReason(utils, apicall));
 		}
 
-		auto modid = result.id.to!string(16);
-
 		if(result.accept_agreement) stderr.writeln("You have to accept the steam agreement!");
 		writeln("Response from steam: ", result.result);
-		writeln("Mod ID: ", modid);
-		write(".modid." ~ variation, modid);
+
+		if(!failure && result.result == Result.OK && !modid) {
+			auto id = result.id.to!string(16);
+			writefln("Mod ID: %s (%s)", id, result.id);
+			write(".modid." ~ variation, id);
+			goto case "publish";
+		}
 
 		break;
 	case "help":
