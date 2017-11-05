@@ -31,7 +31,7 @@ alias write = std.file.write;
 void ensure(Pid pid) {
 	auto err = pid.wait;
 	if(err) {
-		stderr.writefln("ns2modder encountered an error!");
+		stderr.writefln("laspad encountered an error!");
 		exit(1);
 	}
 }
@@ -120,7 +120,7 @@ void main(string[] args) {
 		break;
 	case "necessitate":
 		if(args.length < 3) {
-			stderr.writeln("Syntax: ns2modder necessitate <git repo URLs>");
+			stderr.writeln("Syntax: laspad necessitate <git repo URLs>");
 			exit(1);
 		}
 		if(!exists("dependencies")) mkdir("dependencies");
@@ -132,7 +132,7 @@ void main(string[] args) {
 		break;
 	case "denecessitate":
 		if(args.length < 3) {
-			stderr.writeln("Syntax: ns2modder necessitate <git repo names>");
+			stderr.writeln("Syntax: laspad denecessitate <git repo names>");
 			exit(1);
 		}
 		auto s = stash();
