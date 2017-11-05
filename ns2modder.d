@@ -11,7 +11,12 @@ import std.conv;
 import std.exception;
 
 import core.stdc.stdlib      : exit;
-import core.sys.posix.unistd : link;
+version(Posix) {
+	import core.sys.posix.unistd : link;
+	void copy(string a, string b) {
+		link(a.toStringz, b.toStringz);
+	}
+}
 
 import toml;
 
