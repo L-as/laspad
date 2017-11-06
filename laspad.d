@@ -21,6 +21,7 @@ version(Posix) {
 import toml;
 
 import steam_api;
+import mdbbconverter;
 
 immutable config = "config.toml";
 immutable help                = import("help.txt");
@@ -168,11 +169,18 @@ void main(string[] args) {
 		if (exists(".modid." ~ variation)) {
 			compile;
 
-			auto name            = toml["name"].str;
-			auto tags            = toml["tags"].array;
-			auto autodescription = toml["autodescription"].boolean;
-			auto description     = toml["description"].str.readText;
-			auto preview         = cast(byte[])toml["preview"].str.read;
+
+			auto name             = toml["name"].str;
+			auto tags             = toml["tags"].array;
+			auto autodescription  = toml["autodescription"].boolean;
+
+			auto description_path = toml["description"].str;
+			auto description      = description_path.extension == ".md" ?
+				toml["description"].str.readText.markdown_to_bbcode :
+				toml["description"].str.readText;
+
+			auto preview          = cast(byte[])toml["preview"].str.read;
+
 
 			auto commit = "git commit: %s".format(execute(["git", "rev-parse", "HEAD"]).output);
 			modid = readText(".modid." ~ variation).to!ulong(16);
