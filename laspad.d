@@ -197,7 +197,7 @@ void main(string[] args) {
 				}
 				auto shortlog = execute(["git", "shortlog", "-sn"]);
 				if(!shortlog.status) {
-					description ~= "Authors: (commits, author, e-mail) [code]\n%s[/code]\n\n".format(shortlog.output);
+					description ~= "Authors: (commits, author) [code]\n%s[/code]\n\n".format(shortlog.output);
 				}
 				auto submodules = execute(["git", "config", "-f", ".gitmodules", "--get-regexp", "submodule\\.dependencies/.*\\.url"]);
 				if(!submodules.status) {
