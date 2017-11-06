@@ -2,7 +2,7 @@
 
 set -x
 
-dub build
+dub build -b release --compiler=ldc
 
 INSTALL_DIR="$(realpath -s ${INSTALL_DIR:=/usr/local})"
 mkdir -p "$INSTALL_DIR/lib/laspad"
