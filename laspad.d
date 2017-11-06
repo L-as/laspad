@@ -195,7 +195,7 @@ void main(string[] args) {
 					url = url.chomp(".git");
 					description ~= "[b][url=%s]git repository[/url][/b]\ncurrent %s\n\n".format(url, commit);
 				}
-				auto shortlog = execute(["git", "shortlog", "-sne"]);
+				auto shortlog = execute(["git", "shortlog", "-sn"]);
 				if(!shortlog.status) {
 					description ~= "Authors: (commits, author, e-mail) [code]\n%s[/code]\n\n".format(shortlog.output);
 				}
