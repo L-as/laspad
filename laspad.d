@@ -68,11 +68,7 @@ void compile() {
 		if(entry.isDir) {
 			if(!path.exists) path.mkdir;
 		} else {
-			version(Posix) {
-				link(entry.toStringz, path.toStringz);
-			} else {
-				copy(entry, path);
-			}
+			copy(entry, path);
 		}
 	}
 
@@ -92,11 +88,7 @@ void compile() {
 			if(entry.isDir) {
 				if(!path.exists) path.mkdir;
 			} else {
-				version(Posix) {
-					link(entry.toStringz, path.toStringz);
-				} else {
-					copy(entry, path);
-				}
+				copy(entry, path);
 			}
 		}
 	}
