@@ -144,6 +144,7 @@ struct RemoteStoragePublishFileResult {
 
 SteamAPICall_t SteamAPI_ISteamRemoteStorage_PublishWorkshopFile(void*, const char*, const char*, uint, const char*, const char*, Visibility, Strings*, FileType);
 bool           SteamAPI_ISteamRemoteStorage_FileWrite(void*, in char*, in byte*, int);
+bool           SteamAPI_ISteamRemoteStorage_FileDelete(void*, in char*);
 ulong          SteamAPI_ISteamRemoteStorage_CreatePublishedFileUpdateRequest(void*, ulong);
 SteamAPICall_t SteamAPI_ISteamRemoteStorage_CommitPublishedFileUpdate(void*, ulong);
 bool           SteamAPI_ISteamRemoteStorage_UpdatePublishedFileFile(void*, ulong, in char*);

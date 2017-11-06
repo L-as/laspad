@@ -166,6 +166,10 @@ void main(string[] args) {
 		auto variation = args.length < 3 ? "master" : args[2];
 		auto toml      = config.readText.parseTOML[variation].table;
 
+		const(char*)[] delendus;
+		scope(exit) foreach(file; delendus) {
+			SteamAPI_ISteamRemoteStorage_FileDelete(remote, file);
+		}
 		ulong          modid;
 		int            callback_type;
 		SteamAPICall_t apicall;
@@ -235,16 +239,18 @@ void main(string[] args) {
 
 			auto data         = cast(byte[])file.build;
 
-			auto filename     = "ns2mod.%s.%s.zip".format(name, variation);
-			auto preview_name = "ns2mod.%s.%s.preview.jpg".format(name, variation);
-			if(!SteamAPI_ISteamRemoteStorage_FileWrite(remote, filename.toStringz, data.ptr, cast(int)data.length)) {
+			auto filename     = "ns2mod.%s.%s.zip".format(name, variation).toStringz;
+			auto preview_name = "ns2mod.%s.%s.preview.jpg".format(name, variation).toStringz;
+			if(!SteamAPI_ISteamRemoteStorage_FileWrite(remote, filename, data.ptr, cast(int)data.length)) {
 				stderr.writeln("Could not write zip file to remote storage! Please check https://partner.steamgames.com/doc/api/ISteamRemoteStorage#FileWrite for possible reasons.");
 				exit(1);
 			}
-			if(preview.length) if(!SteamAPI_ISteamRemoteStorage_FileWrite(remote, preview_name.toStringz, preview.ptr, cast(int)preview.length)) {
+			delendus ~= filename;
+			if(!SteamAPI_ISteamRemoteStorage_FileWrite(remote, preview_name, preview.ptr, cast(int)preview.length)) {
 				stderr.writeln("Could not write preview file to remote storage! Please check https://partner.steamgames.com/doc/api/ISteamRemoteStorage#FileWrite for possible reasons.");
 				exit(1);
 			}
+			delendus ~= preview_name;
 
 			const(char*)[] strings;
 			foreach(tag; tags) {
@@ -253,8 +259,8 @@ void main(string[] args) {
 			auto steam_tags = Strings(strings.ptr, cast(int)strings.length);
 
 			auto update = SteamAPI_ISteamRemoteStorage_CreatePublishedFileUpdateRequest(remote, modid);
-			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileFile(remote, update, filename.toStringz).enforce;
-			if(preview.length) SteamAPI_ISteamRemoteStorage_UpdatePublishedFilePreviewFile(remote, update, preview_name.toStringz).enforce;
+			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileFile(remote, update, filename).enforce;
+			SteamAPI_ISteamRemoteStorage_UpdatePublishedFilePreviewFile(remote, update, preview_name).enforce;
 			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileDescription(remote, update, description.toStringz).enforce;
 			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileSetChangeDescription(remote, update, commit.toStringz).enforce;
 			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileTags(remote, update, &steam_tags).enforce;
@@ -269,6 +275,7 @@ void main(string[] args) {
 				stderr.writeln("Could not write dummy file to remote storage! Please check https://partner.steamgames.com/doc/api/ISteamRemoteStorage#FileWrite for possible reasons.");
 				exit(1);
 			}
+			delendus ~= dummy;
 
 			auto tags = Strings(null, 0);
 			apicall = SteamAPI_ISteamRemoteStorage_PublishWorkshopFile(remote,
