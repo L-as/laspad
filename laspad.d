@@ -139,9 +139,8 @@ void main(string[] args) {
 		break;
 	case "update":
 		auto s = stash();
-		spawnProcess(["git", "submodule", "init"]).ensure;
-		spawnProcess(["git", "submodule", "sync"]).ensure;
-		spawnProcess(["git", "submodule", "update", "--remote"]).ensure;
+		spawnProcess(["git", "submodule", "sync", "--recursive"]).ensure;
+		spawnProcess(["git", "submodule", "update", "--init", "--remote", "--recursive"]).ensure;
 		spawnProcess(["git", "commit",    "-am",     "Updated dependencies"]).wait;
 		break;
 	case "compile":
