@@ -57,13 +57,13 @@ auto stash() {
 }
 
 void compile() {
-	if(exists("output")) rmdirRecurse("output");
-	mkdir("output");
+	if(exists("compiled")) rmdirRecurse("compiled");
+	mkdir("compiled");
 
 	foreach(string entry; dirEntries("src", SpanMode.breadth)) {
 		//relative path within the mod itself
 		auto split = entry.split(dirSeparator);
-		split[0] = "output";
+		split[0] = "compiled";
 		auto path  = split.join(dirSeparator);
 
 		if(entry.isDir) {
@@ -84,7 +84,7 @@ void compile() {
 		foreach(string entry; src.dirEntries(SpanMode.breadth)) {
 			auto split = entry.split(dirSeparator);
 			foreach(part; split[3 .. $]) if(part[0] == '.') continue outer;
-			auto path = buildPath("output", split[3 .. $].join(dirSeparator));
+			auto path = buildPath("compiled", split[3 .. $].join(dirSeparator));
 
 			if(entry.isDir) {
 				if(!path.exists) path.mkdir;
@@ -107,7 +107,7 @@ void main(string[] args) {
 		if(!exists("src")) {
 			mkdir("src");
 		}
-		append(".gitignore", "output\noutput.zip\n");
+		append(".gitignore", "compiled\n");
 
 		config.write(default_config);
 		break;
@@ -229,7 +229,7 @@ void main(string[] args) {
 			modinfo.name         = ".modinfo"; modinfo.expandedData = ("name=\"" ~ name ~"\"").representation.dup;
 			file.addMember(modinfo);
 
-			foreach(entry; dirEntries("output", SpanMode.depth)) {
+			foreach(entry; dirEntries("compiled", SpanMode.depth)) {
 				if(entry.isDir) continue;
 				auto member         = new ArchiveMember;
 				static if(dirSeparator != "/") {
