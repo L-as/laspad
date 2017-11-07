@@ -234,14 +234,14 @@ void main(string[] args) {
 
 			auto file            = new ZipArchive;
 
-			auto modinfo         = new ArchiveMember;
-			modinfo.name         = ".modinfo"; modinfo.expandedData = ("name=\"" ~ name ~"\"").representation.dup;
-			file.addMember(modinfo);
-
 			iterate_entries(".", (loc, entry) {
 				auto src = loc.buildPath(entry);
 				if(src.isDir) return;
 
+				if(entry == ".modinfo") {
+					writeln("Skipped .modinfo!");
+					return;
+				}
 				auto member               = new ArchiveMember;
 				static if(dirSeparator   != "/") {
 					member.name           = entry.tr(dirSeparator, "/");
@@ -252,6 +252,11 @@ void main(string[] args) {
 				member.compressionMethod  = CompressionMethod.deflate;
 				file.addMember(member);
 			});
+
+			auto modinfo         = new ArchiveMember;
+			modinfo.name         = ".modinfo";
+			modinfo.expandedData = ("name=\"" ~ name ~"\"").representation.dup;
+			file.addMember(modinfo);
 
 			auto data         = cast(byte[])file.build;
 
