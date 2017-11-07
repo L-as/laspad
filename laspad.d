@@ -238,6 +238,7 @@ void main(string[] args) {
 					member.name = entry.pathSplitter.drop(1).buildPath;
 				}
 				member.expandedData = cast(ubyte[])entry.read;
+				member.compressionMethod = CompressionMethod.deflate;
 				file.addMember(member);
 			}
 
