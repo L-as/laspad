@@ -2,7 +2,11 @@
 
 set -x
 
-dub build -b release --compiler=ldc
+
+which dub && dub build -b release --compiler=ldc || test -e laspad || {
+	echo >&2 "Can not build executable and no executable presupplied!"
+	return 1
+}
 
 INSTALL_DIR="$(realpath -s ${INSTALL_DIR:=/usr/local})"
 mkdir -p "$INSTALL_DIR/lib/laspad"
