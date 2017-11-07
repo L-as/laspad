@@ -9,13 +9,14 @@ import std.range;
 import std.format;
 import std.conv;
 import std.exception;
+import std.algorithm.searching;
 
 import core.thread;
 import core.stdc.stdlib      : exit;
 version(Posix) {
 	import core.sys.posix.unistd : link;
 	void copy(string a, string b) {
-		link(a.toStringz, b.toStringz);
+		if(link(a.toStringz, b.toStringz)) throw new FileException(b, "Could not link '%s' and '%s'!".format(a, b));
 	}
 }
 
@@ -57,41 +58,41 @@ auto stash() {
 	return S(!!spawnProcess(["git", "diff-index", "--quiet", "HEAD", "--"]).wait);
 }
 
-void compile() {
-	if(exists("compiled")) rmdirRecurse("compiled");
-	mkdir("compiled");
+immutable source_paths        = ["src", "output", "source"]; // All are traversed, prioritisation.
+immutable blacklisted_endings = [".psd", ".xcf"];            // Mods will most likely not use these.
+void iterate_entries   (string loc, void delegate(string loc, string entry) func) {
+	loc = loc.buildNormalizedPath;
 
-	foreach(string entry; dirEntries("src", SpanMode.breadth)) {
-		//relative path within the mod itself
-		auto split = entry.split(dirSeparator);
-		split[0] = "compiled";
-		auto path  = split.join(dirSeparator);
-
-		if(entry.isDir) {
-			if(!path.exists) path.mkdir;
-		} else {
-			copy(entry, path);
+	static void iterate(string loc, void delegate(string loc, string entry) func) {
+		foreach(entry; loc.dirEntries(SpanMode.breadth)) {
+			if(!blacklisted_endings.canFind(entry.extension)) {
+				func(loc, entry[loc.length+1 .. $]);
+			}
 		}
 	}
 
-	if(exists("dependencies")) foreach(string dependency; dirEntries("dependencies", SpanMode.shallow)) {
-		auto src =
-			chainPath(dependency, "src").exists    ? buildPath(dependency, "src")    :
-			chainPath(dependency, "output").exists ? buildPath(dependency, "output") :
-			chainPath(dependency, "source").exists ? buildPath(dependency, "source") :
-			buildPath(dependency, ".");
+	ubyte found = 0;
+	foreach(src; source_paths) {
+		auto rel_src = loc.buildPath(src);
+		if(rel_src.exists) {
+			found += 1;
+			iterate(rel_src, func);
+		}
+	}
 
-		outer:
-		foreach(string entry; src.dirEntries(SpanMode.breadth)) {
-			auto split = entry.split(dirSeparator);
-			foreach(part; split[3 .. $]) if(part[0] == '.') continue outer;
-			auto path = buildPath("compiled", split[3 .. $].join(dirSeparator));
+	bool laspad_mod = loc.buildPath("config.toml").exists;
 
-			if(entry.isDir) {
-				if(!path.exists) path.mkdir;
-			} else {
-				copy(entry, path);
-			}
+	if(found > 1) {
+		stderr.writefln("WARNING: %s has %s source folders!", loc, found);
+	} else if(found == 0) {
+		stderr.writefln("WARNING: %s has no source folders!", loc, found);
+		if(!laspad_mod) iterate(loc, func);
+	}
+
+	if(laspad_mod) {
+		auto dependencies = loc.buildPath("dependencies");
+		if(dependencies.exists) foreach(dependency; dependencies.dirEntries(SpanMode.shallow)) {
+			iterate_entries(dependency, func);
 		}
 	}
 }
@@ -144,7 +145,17 @@ void main(string[] args) {
 		spawnProcess(["git", "commit",    "-am",     "Updated dependencies"]).wait;
 		break;
 	case "compile":
-		compile;
+		if(exists("compiled")) rmdirRecurse("compiled");
+		mkdir("compiled");
+
+		iterate_entries(".", (loc, entry) {
+			auto dst = buildPath("compiled", entry);
+			if(dst.exists) return;
+
+			auto src = loc.buildPath(entry);
+			if(src.isDir) mkdir(dst);
+			else          copy(src, dst);
+		});
 		break;
 	case "publish":
 		if(!SteamAPI_Init()) exit(1);
@@ -169,9 +180,6 @@ void main(string[] args) {
 		int            callback_type;
 		SteamAPICall_t apicall;
 		if (exists(".modid." ~ variation)) {
-			compile;
-
-
 			auto name             = toml["name"].str;
 			auto tags             = toml["tags"].array;
 			auto autodescription  = toml["autodescription"].boolean;
@@ -231,18 +239,20 @@ void main(string[] args) {
 			modinfo.name         = ".modinfo"; modinfo.expandedData = ("name=\"" ~ name ~"\"").representation.dup;
 			file.addMember(modinfo);
 
-			foreach(entry; dirEntries("compiled", SpanMode.depth)) {
-				if(entry.isDir) continue;
-				auto member         = new ArchiveMember;
-				static if(dirSeparator != "/") {
-					member.name = entry.pathSplitter.drop(1).buildPath.tr(dirSeparator, "/");
+			iterate_entries(".", (loc, entry) {
+				auto src = loc.buildPath(entry);
+				if(src.isDir) return;
+
+				auto member               = new ArchiveMember;
+				static if(dirSeparator   != "/") {
+					member.name           = entry.tr(dirSeparator, "/");
 				} else {
-					member.name = entry.pathSplitter.drop(1).buildPath;
+					member.name           = entry;
 				}
-				member.expandedData = cast(ubyte[])entry.read;
-				member.compressionMethod = CompressionMethod.deflate;
+				member.expandedData       = cast(ubyte[])src.read;
+				member.compressionMethod  = CompressionMethod.deflate;
 				file.addMember(member);
-			}
+			});
 
 			auto data         = cast(byte[])file.build;
 
