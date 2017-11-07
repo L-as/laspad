@@ -232,7 +232,11 @@ void main(string[] args) {
 			foreach(entry; dirEntries("output", SpanMode.depth)) {
 				if(entry.isDir) continue;
 				auto member         = new ArchiveMember;
-				member.name         = entry.pathSplitter.drop(1).buildPath;
+				static if(dirSeparator != "/") {
+					member.name = entry.pathSplitter.drop(1).buildPath.tr(dirSeparator, "/");
+				} else {
+					member.name = entry.pathSplitter.drop(1).buildPath;
+				}
 				member.expandedData = cast(ubyte[])entry.read;
 				file.addMember(member);
 			}
