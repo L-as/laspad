@@ -10,6 +10,7 @@ import std.format;
 import std.conv;
 import std.exception;
 
+import core.thread;
 import core.stdc.stdlib      : exit;
 version(Posix) {
 	import core.sys.posix.unistd : link;
@@ -161,6 +162,7 @@ void main(string[] args) {
 
 		const(char*)[] delendus;
 		scope(exit) foreach(file; delendus) {
+			Thread.sleep(500.msecs); // Steam isn't always done immediately for some stupid reason...
 			SteamAPI_ISteamRemoteStorage_FileDelete(remote, file);
 		}
 		ulong          modid;
