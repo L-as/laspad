@@ -177,10 +177,7 @@ void main(string[] args) {
 		auto remote = SteamRemoteStorage();
 		auto utils  = SteamUtils();
 
-		if(!remote || !utils) {
-			stderr.writeln("Could not load utils or remote apis!");
-			exit(1);
-		}
+		(remote || utils).ensure("Could not load utils or remote APIs!");
 
 		auto variation = args.length < 3 ? "master" : args[2];
 		auto toml      = config.readText.parseTOML[variation].table;
@@ -277,15 +274,13 @@ void main(string[] args) {
 
 			auto filename     = "ns2mod.%s.%s.zip".format(name, variation).toStringz;
 			auto preview_name = "ns2mod.%s.%s.preview.jpg".format(name, variation).toStringz;
-			if(!SteamAPI_ISteamRemoteStorage_FileWrite(remote, filename, data.ptr, cast(int)data.length)) {
-				stderr.writeln("Could not write zip file to remote storage! Please check https://partner.steamgames.com/doc/api/ISteamRemoteStorage#FileWrite for possible reasons.");
-				exit(1);
-			}
+			SteamAPI_ISteamRemoteStorage_FileWrite(remote, filename, data.ptr, cast(int)data.length).ensure(
+				"Could not write zip file to remote storage! Please check https://partner.steamgames.com/doc/api/ISteamRemoteStorage#FileWrite for possible reasons."
+			);
 			delendus ~= filename;
-			if(!SteamAPI_ISteamRemoteStorage_FileWrite(remote, preview_name, preview.ptr, cast(int)preview.length)) {
-				stderr.writeln("Could not write preview file to remote storage! Please check https://partner.steamgames.com/doc/api/ISteamRemoteStorage#FileWrite for possible reasons.");
-				exit(1);
-			}
+			SteamAPI_ISteamRemoteStorage_FileWrite(remote, preview_name, preview.ptr, cast(int)preview.length).ensure(
+				"Could not write preview file to remote storage! Please check https://partner.steamgames.com/doc/api/ISteamRemoteStorage#FileWrite for possible reasons."
+			);
 			delendus ~= preview_name;
 
 			const(char*)[] strings;
@@ -307,10 +302,9 @@ void main(string[] args) {
 		} else {
 			auto dummy = "ns2mod.dummy.dummy.dummy".toStringz;
 			byte[] data = [0];
-			if(!SteamAPI_ISteamRemoteStorage_FileWrite(remote, dummy, data.ptr, cast(int)data.length)) {
-				stderr.writeln("Could not write dummy file to remote storage! Please check https://partner.steamgames.com/doc/api/ISteamRemoteStorage#FileWrite for possible reasons.");
-				exit(1);
-			}
+			SteamAPI_ISteamRemoteStorage_FileWrite(remote, dummy, data.ptr, cast(int)data.length).ensure(
+				"Could not write dummy file to remote storage! Please check https://partner.steamgames.com/doc/api/ISteamRemoteStorage#FileWrite for possible reasons."
+			);
 			delendus ~= dummy;
 
 			auto tags = Strings(null, 0);
