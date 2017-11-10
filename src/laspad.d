@@ -8,7 +8,6 @@ import std.zip;
 import std.range;
 import std.format;
 import std.conv;
-import std.exception;
 import std.algorithm.searching;
 
 import core.thread;
@@ -37,6 +36,17 @@ void ensure(Pid pid) {
 		stderr.writefln("laspad encountered an error!");
 		exit(1);
 	}
+}
+
+void ensure(bool success, string message) {
+	if(!success) {
+		stderr.writeln(message);
+		exit(1);
+	}
+}
+
+void needconfig() {
+	config.exists.ensure("This is not a laspad project!");
 }
 
 auto stash() {
@@ -114,6 +124,7 @@ void main(string[] args) {
 		config.write(default_config);
 		break;
 	case "necessitate":
+		needconfig;
 		if(args.length < 3) {
 			stderr.writeln("Syntax: laspad necessitate <git repo URLs>");
 			exit(1);
@@ -126,6 +137,7 @@ void main(string[] args) {
 		spawnProcess(["git", "commit", "-m", "Added dependencies '" ~ args[2 .. $].join(' ') ~ "'"]).ensure;
 		break;
 	case "denecessitate":
+		needconfig;
 		if(args.length < 3) {
 			stderr.writeln("Syntax: laspad denecessitate <git repo names>");
 			exit(1);
@@ -138,12 +150,14 @@ void main(string[] args) {
 		spawnProcess(["git", "commit", "-m", "Removed dependencies '" ~ args[2 .. $].join(' ') ~ "'"]).ensure;
 		break;
 	case "update":
+		needconfig;
 		auto s = stash();
 		spawnProcess(["git", "submodule", "sync", "--recursive"]).ensure;
 		spawnProcess(["git", "submodule", "update", "--init", "--remote", "--recursive"]).ensure;
 		spawnProcess(["git", "commit",    "-am",     "Updated dependencies"]).wait;
 		break;
 	case "compile":
+		needconfig;
 		if(exists("compiled")) rmdirRecurse("compiled");
 		mkdir("compiled");
 
@@ -157,6 +171,7 @@ void main(string[] args) {
 		});
 		break;
 	case "publish":
+		needconfig;
 		if(!SteamAPI_Init()) exit(1);
 
 		auto remote = SteamRemoteStorage();
@@ -280,12 +295,12 @@ void main(string[] args) {
 			auto steam_tags = Strings(strings.ptr, cast(int)strings.length);
 
 			auto update = SteamAPI_ISteamRemoteStorage_CreatePublishedFileUpdateRequest(remote, modid);
-			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileFile(remote, update, filename).enforce;
-			SteamAPI_ISteamRemoteStorage_UpdatePublishedFilePreviewFile(remote, update, preview_name).enforce;
-			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileDescription(remote, update, description.toStringz).enforce;
-			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileSetChangeDescription(remote, update, commit.toStringz).enforce;
-			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileTags(remote, update, &steam_tags).enforce;
-			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileTitle(remote, update, name.toStringz).enforce;
+			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileFile(remote, update, filename).ensure("Could not publish file!");
+			SteamAPI_ISteamRemoteStorage_UpdatePublishedFilePreviewFile(remote, update, preview_name).ensure("Could not publish preview!");
+			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileDescription(remote, update, description.toStringz).ensure("Could not publish description!");
+			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileSetChangeDescription(remote, update, commit.toStringz).ensure("Could not publish change log!");
+			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileTags(remote, update, &steam_tags).ensure("Could not publish tags!");
+			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileTitle(remote, update, name.toStringz).ensure("Could not publish title!");
 			apicall = SteamAPI_ISteamRemoteStorage_CommitPublishedFileUpdate(remote, update);
 
 			callback_type = 1316;
