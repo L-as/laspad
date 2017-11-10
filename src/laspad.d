@@ -180,7 +180,13 @@ void main(string[] args) {
 		(remote || utils).ensure("Could not load utils or remote APIs!");
 
 		auto variation = args.length < 3 ? "master" : args[2];
-		auto toml      = config.readText.parseTOML[variation].table;
+		auto toml_root = config.readText.parseTOML;
+		if(variation !in toml_root) {
+			stderr.writeln("Not a valid variation!");
+			exit(1);
+		}
+
+		auto toml      = toml_root[variation].table;
 
 		const(char*)[] delendus;
 		scope(exit) foreach(file; delendus) {
@@ -191,6 +197,11 @@ void main(string[] args) {
 		int            callback_type;
 		SteamAPICall_t apicall;
 		if (exists(".modid." ~ variation)) {
+			("name"            !in toml).ensure("Please supply a name field!");
+			("tags"            !in toml).ensure("Please supply tags!");
+			("autodescription" !in toml).ensure("Please supply whether to use the automatic description generator!");
+			("description"     !in toml).ensure("Please supply a path to the description file!");
+			("preview"         !in toml).ensure("Please supply a path to the preview file!");
 			auto name             = toml["name"].str;
 			auto tags             = toml["tags"].array;
 			auto autodescription  = toml["autodescription"].boolean;
