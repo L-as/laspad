@@ -3,6 +3,8 @@ docs.json
 __dummy.html
 docs/
 laspad
+laspad.tar.gz
+laspad.7z
 *.exe
 *.o
 *.obj
