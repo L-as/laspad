@@ -3,7 +3,7 @@
 set -x
 
 
-which dub && dub build -b release --compiler=ldc || test -e laspad || {
+which dub && LD_RUN_PATH='$ORIGIN' dub build -b release --compiler=ldc --force || test -e laspad || {
 	echo >&2 "Can not build executable and no executable presupplied!"
 	return 1
 }
