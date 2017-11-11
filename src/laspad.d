@@ -197,11 +197,11 @@ void main(string[] args) {
 		int            callback_type;
 		SteamAPICall_t apicall;
 		if (exists(".modid." ~ variation)) {
-			("name"            !in toml).ensure("Please supply a name field!");
-			("tags"            !in toml).ensure("Please supply tags!");
-			("autodescription" !in toml).ensure("Please supply whether to use the automatic description generator!");
-			("description"     !in toml).ensure("Please supply a path to the description file!");
-			("preview"         !in toml).ensure("Please supply a path to the preview file!");
+			(!!("name"            in toml)).ensure("Please supply a name field!");
+			(!!("tags"            in toml)).ensure("Please supply tags!");
+			(!!("autodescription" in toml)).ensure("Please supply whether to use the automatic description generator!");
+			(!!("description"     in toml)).ensure("Please supply a path to the description file!");
+			(!!("preview"         in toml)).ensure("Please supply a path to the preview file!");
 			auto name             = toml["name"].str;
 			auto tags             = toml["tags"].array;
 			auto autodescription  = toml["autodescription"].boolean;
