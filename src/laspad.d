@@ -46,6 +46,9 @@ void ensure(bool success, string message) {
 }
 
 void needconfig() {
+	version(Posix) {
+		while(getcwd != "/" && !config.exists) chdir("..");
+	}
 	config.exists.ensure("This is not a laspad project!");
 }
 
