@@ -24,7 +24,7 @@ import toml;
 import steam_api;
 import mdbbconverter;
 
-immutable config = "config.toml";
+immutable config = "laspad.toml";
 immutable help                = import("help.txt");
 immutable default_config      = import(config);
 
@@ -49,7 +49,7 @@ void needconfig() {
 	version(Posix) {
 		while(getcwd != "/" && !config.exists) chdir("..");
 	}
-	config.exists.ensure("This is not a laspad project!");
+	config.exists.ensure("This is not a laspad project! Please rename your config.toml to laspad.toml if you haven't done that yet.");
 }
 
 auto stash() {
@@ -93,7 +93,7 @@ void iterate_entries   (string loc, void delegate(string loc, string entry) func
 		}
 	}
 
-	bool laspad_mod = loc.buildPath("config.toml").exists;
+	bool laspad_mod = loc.buildPath("laspad.toml").exists;
 
 	if(found > 1) {
 		stderr.writefln("WARNING: %s has %s source folders!", loc, found);
