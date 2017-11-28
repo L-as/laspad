@@ -247,7 +247,7 @@ void main(string[] args) {
 						auto url        = split[1];
 						try {
 							auto dependency_modid = readText("dependencies/"~dependency~"/.modid.master");
-							auto workshop_url = "http://steamcommunity.com/sharedfiles/filedetails/?id=%s".format(dependency_modid.to!ulong);
+							auto workshop_url = "http://steamcommunity.com/sharedfiles/filedetails/?id=%s".format(dependency_modid.to!ulong(16));
 							description ~= "  [*] [url=%s]%s[/url] ([url=%s]Workshop link[/url])".format(url, dependency, workshop_url);
 						} catch(FileException e) {
 							description ~= "  [*] [url=%s]%s[/url]".format(url, dependency);
