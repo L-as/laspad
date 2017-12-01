@@ -292,10 +292,12 @@ void main(string[] args) {
 				"Could not write zip file to remote storage! Please check https://partner.steamgames.com/doc/api/ISteamRemoteStorage#FileWrite for possible reasons."
 			);
 			delendus ~= filename;
-			SteamAPI_ISteamRemoteStorage_FileWrite(remote, preview_name, preview.ptr, cast(int)preview.length).ensure(
-				"Could not write preview file to remote storage! Please check https://partner.steamgames.com/doc/api/ISteamRemoteStorage#FileWrite for possible reasons."
-			);
-			delendus ~= preview_name;
+			if(preview.length != 0) {
+				SteamAPI_ISteamRemoteStorage_FileWrite(remote, preview_name, preview.ptr, cast(int)preview.length).ensure(
+					"Could not write preview file to remote storage! Please check https://partner.steamgames.com/doc/api/ISteamRemoteStorage#FileWrite for possible reasons."
+				);
+				delendus ~= preview_name;
+			}
 
 			const(char*)[] strings;
 			foreach(tag; tags) {
@@ -305,7 +307,9 @@ void main(string[] args) {
 
 			auto update = SteamAPI_ISteamRemoteStorage_CreatePublishedFileUpdateRequest(remote, modid);
 			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileFile(remote, update, filename).ensure("Could not publish file!");
-			SteamAPI_ISteamRemoteStorage_UpdatePublishedFilePreviewFile(remote, update, preview_name).ensure("Could not publish preview!");
+			if(preview.length != 0) {
+				SteamAPI_ISteamRemoteStorage_UpdatePublishedFilePreviewFile(remote, update, preview_name).ensure("Could not publish preview!");
+			}
 			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileDescription(remote, update, description.toStringz).ensure("Could not publish description!");
 			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileSetChangeDescription(remote, update, commit.toStringz).ensure("Could not publish change log!");
 			SteamAPI_ISteamRemoteStorage_UpdatePublishedFileTags(remote, update, &steam_tags).ensure("Could not publish tags!");
