@@ -365,6 +365,9 @@ void main(string[] args) {
 			goto case "publish";
 		}
 
+		if(result.result != Result.OK)
+			exit(1);
+
 		break;
 	case "help":
 		writeln(help);
