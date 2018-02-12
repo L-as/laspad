@@ -1,4 +1,4 @@
-#/usr/bin/env bash
+#!/usr/bin/env bash
 
 echo -E '
 Set INSTALL_DIR to where laspad should be installed. Default is /usr/local.
